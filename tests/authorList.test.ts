@@ -1,5 +1,7 @@
 import Author from '../models/author'; // Adjust the import to your Author model path
 import { getAuthorList } from '../pages/authors'; // Adjust the import to your function
+import { Response } from 'express';
+import { showAllAuthors } from '../pages/authors';
 
 describe('getAuthorList', () => {
     afterEach(() => {
@@ -204,10 +206,110 @@ describe('getAuthorList', () => {
         ];
         expect(result).toEqual(expectedAuthors);
     });
+
+    it('should handle invalid date_of_birth or date_of_death types', async () => {
+        const invalidAuthors = [
+            { first_name: 'Invalid', family_name: 'Author', date_of_birth: 'invalid-date', date_of_death: new Date('1989-12-22') },
+            { first_name: 'Valid', family_name: 'Author', date_of_birth: new Date('1900-05-01'), date_of_death: 'invalid-date' },
+        ];
+    
+        Author.find = jest.fn().mockReturnValue({
+            sort: jest.fn().mockResolvedValue(invalidAuthors),
+        });
+    
+        const result = await getAuthorList();
+    
+        const expectedAuthors = [
+            'Author, Invalid :  - 1989',
+            'Author, Valid : 1900 - ',
+        ];
+    
+        expect(result).toEqual(expectedAuthors);
+    });
     
     
 });
 
+describe('showAllAuthors', () => {
+    afterEach(() => {
+        jest.resetAllMocks();
+    });
 
+    it('should send author list when data is available', async () => {
+        const sortedAuthors = [
+            {
+                first_name: 'Jane',
+                family_name: 'Austen',
+                date_of_birth: new Date('1775-12-16'),
+                date_of_death: new Date('1817-07-18')
+            },
+            {
+                first_name: 'Amitav',
+                family_name: 'Ghosh',
+                date_of_birth: new Date('1835-11-30'),
+                date_of_death: new Date('1910-04-21')
+            }
+        ];
 
+        const mockFind = jest.fn().mockReturnValue({
+            sort: jest.fn().mockResolvedValue(sortedAuthors)
+        });
 
+        Author.find = mockFind;
+
+        const mockRes = {
+            send: jest.fn()
+        } as unknown as Response;
+
+        await showAllAuthors(mockRes);
+
+        const expectedAuthors = [
+            'Austen, Jane : 1775 - 1817',
+            'Ghosh, Amitav : 1835 - 1910'
+        ];
+
+        expect(mockRes.send).toHaveBeenCalledWith(expectedAuthors);
+    });
+
+    it('should send "No authors found" when no authors are available', async () => {
+        const mockFind = jest.fn().mockReturnValue({
+            sort: jest.fn().mockResolvedValue([])
+        });
+
+        Author.find = mockFind;
+
+        const mockRes = {
+            send: jest.fn()
+        } as unknown as Response;
+
+        await showAllAuthors(mockRes);
+
+        expect(mockRes.send).toHaveBeenCalledWith('No authors found');
+    });
+
+    it('should handle errors and send "No authors found" when an error occurs', async () => {
+        Author.find = jest.fn().mockImplementation(() => {
+            throw new Error('Database error');
+        });
+
+        const mockRes = {
+            send: jest.fn()
+        } as unknown as Response;
+
+        await showAllAuthors(mockRes);
+
+        expect(mockRes.send).toHaveBeenCalledWith('No authors found');
+    });
+
+    it('should handle malformed response objects', async () => {
+        const mockRes = {
+            send: jest.fn().mockImplementationOnce(() => {
+                throw new Error('Response error');
+            }),
+        } as unknown as Response;
+    
+        await showAllAuthors(mockRes)
+        
+        expect(mockRes.send).toHaveBeenCalledWith('No authors found');
+    });
+});

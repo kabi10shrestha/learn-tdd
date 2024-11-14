@@ -112,4 +112,102 @@ describe('getAuthorList', () => {
         // Assert: Verify the result is an empty array
         expect(result).toEqual([]);
     });
+
+    it('should handle null date_of_birth and/or date_of_death correctly', async () => {
+        const authorsWithMissingDates = [
+            { first_name: 'Jane', family_name: 'Doe', date_of_birth: null, date_of_death: null },
+            { first_name: 'John', family_name: 'Smith', date_of_birth: new Date('1900-05-01'), date_of_death: null },
+            { first_name: 'Emily', family_name: 'Bronte', date_of_birth: null, date_of_death: new Date('1848-12-19') },
+        ];
+    
+        Author.find = jest.fn().mockReturnValue({
+            sort: jest.fn().mockResolvedValue(authorsWithMissingDates),
+        });
+    
+        const result = await getAuthorList();
+    
+        const expectedAuthors = [
+            'Doe, Jane :  - ',
+            'Smith, John : 1900 - ',
+            'Bronte, Emily :  - 1848',
+        ];
+        expect(result).toEqual(expectedAuthors);
+    });
+    
+
+    it('should format fullname as empty string if family_name is absent', async () => {
+        const authorsMissingFamilyName = [
+            { first_name: 'Jane', family_name: '', date_of_birth: new Date('1775-12-16'), date_of_death: new Date('1817-07-18') },
+        ];
+    
+        Author.find = jest.fn().mockReturnValue({
+            sort: jest.fn().mockResolvedValue(authorsMissingFamilyName),
+        });
+    
+        const result = await getAuthorList();
+        expect(result).toEqual([' : 1775 - 1817']);
+    });
+    
+    it('should return an empty array if no authors are found', async () => {
+        Author.find = jest.fn().mockReturnValue({ sort: jest.fn().mockResolvedValue([]) });
+        const result = await getAuthorList();
+        expect(result).toEqual([]);
+    });
+
+    it('should return authors sorted by family_name in ascending order', async () => {
+        const unsortedAuthors = [
+            { first_name: 'Amitav', family_name: 'Ghosh', date_of_birth: new Date('1835-11-30'), date_of_death: new Date('1910-04-21') },
+            { first_name: 'Jane', family_name: 'Austen', date_of_birth: new Date('1775-12-16'), date_of_death: new Date('1817-07-18') },
+        ];
+    
+        Author.find = jest.fn().mockReturnValue({
+            sort: jest.fn().mockResolvedValue(unsortedAuthors),
+        });
+    
+        const result = await getAuthorList();
+        const expectedAuthors = [
+            'Ghosh, Amitav : 1835 - 1910',
+            'Austen, Jane : 1775 - 1817',
+        ];
+        expect(result).toEqual(expectedAuthors);
+    });
+
+    
+    it('should handle authors with only one name', async () => {
+        const singleNameAuthors = [
+            { first_name: 'Anonymous', family_name: '', date_of_birth: new Date('1900-05-01') },
+        ];
+    
+        Author.find = jest.fn().mockReturnValue({
+            sort: jest.fn().mockResolvedValue(singleNameAuthors),
+        });
+    
+        const result = await getAuthorList();
+        expect(result).toEqual([' : 1900 - ']);
+    });
+
+    it('should handle authors with date_of_birth or date_of_death explicitly set to undefined', async () => {
+        const authorsWithUndefinedDates = [
+            { first_name: 'Samuel', family_name: 'Beckett', date_of_birth: undefined, date_of_death: new Date('1989-12-22') },
+            { first_name: 'Virginia', family_name: 'Woolf', date_of_birth: new Date('1882-01-25'), date_of_death: undefined },
+        ];
+    
+        Author.find = jest.fn().mockReturnValue({
+            sort: jest.fn().mockResolvedValue(authorsWithUndefinedDates),
+        });
+    
+        const result = await getAuthorList();
+    
+        const expectedAuthors = [
+            'Beckett, Samuel :  - 1989',
+            'Woolf, Virginia : 1882 - ',
+        ];
+        expect(result).toEqual(expectedAuthors);
+    });
+    
+    
 });
+
+
+
+

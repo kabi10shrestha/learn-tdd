@@ -99,4 +99,38 @@ describe('showBookDtls', () => {
         expect(res.status).toHaveBeenCalledWith(500);
         expect(res.send).toHaveBeenCalledWith('Error fetching book 12345');
     });
+
+    it('should return 500 if the book is null', async () => {
+        Book.findOne = jest.fn().mockReturnValue({
+            populate: jest.fn().mockReturnThis(),
+            exec: jest.fn().mockResolvedValue(null)
+        });
+
+        await showBookDtls(res as Response, '12345');
+
+        expect(res.status).toHaveBeenCalledWith(500);
+        expect(res.send).toHaveBeenCalledWith(`Error fetching book 12345`);
+    });
+
+
+    it('should handle missing book title or author name', async () => {
+        const incompleteBook = { title: null, author: { name: null } };
+        Book.findOne = jest.fn().mockReturnValue({
+            populate: jest.fn().mockReturnThis(),
+            exec: jest.fn().mockResolvedValue(incompleteBook)
+        });
+        BookInstance.find = jest.fn().mockReturnValue({
+            select: jest.fn().mockReturnThis(),
+            exec: jest.fn().mockResolvedValue(mockCopies)
+        });
+
+        await showBookDtls(res as Response, '12345');
+
+        expect(res.send).toHaveBeenCalledWith({
+            title: incompleteBook.title,
+            author: incompleteBook.author.name,
+            copies: mockCopies
+        });
+    });
+    
 });
